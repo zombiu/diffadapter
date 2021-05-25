@@ -155,6 +155,13 @@ public class DiffAdapter extends RecyclerView.Adapter<BaseDiffViewHolder> {
         return clsType;
     }
 
+    /**
+     * 更新单个item
+     * @param elementData 提供更新数据的 LiveData,泛型是原始数据，而不是包装后的数据
+     * @param updatePayloadFunction
+     * @param <I>
+     * @param <R>
+     */
     public <I, R extends BaseMutableData> void addUpdateMediator(LiveData<I> elementData,
                                                                  final UpdatePayloadFunction<I, R> updatePayloadFunction) {
         mUpdateMediatorLiveData.addSource(elementData, new Observer<I>() {
@@ -168,7 +175,9 @@ public class DiffAdapter extends RecyclerView.Adapter<BaseDiffViewHolder> {
                     if (clsType == null) {
                         return;
                     }
+                    // 从原始数据中获取匹配信息
                     Object matchFeature = updatePayloadFunction.providerMatchFeature(dataSource);
+                    // 这里有可能匹配到多个item项
                     List<R> oldMatchedDatas = getMatchedData(matchFeature, clsType);
 
                     for (final R oldData : oldMatchedDatas) {
@@ -177,6 +186,7 @@ public class DiffAdapter extends RecyclerView.Adapter<BaseDiffViewHolder> {
                             final Set<String> keys = oldData.getPayloadKeys();
                             newData = updatePayloadFunction.applyChange(dataSource, oldData, keys);
                             long current = SystemClock.elapsedRealtime();
+                            // 这里使用了一个时间戳，保证同一时间只有一次更新操作可以更新
                             if (current > mCanUpdateTimeMill || getItemCount() < UPDATE_DELAY_THRESHOLD) {
 
                                 updateData(newData, keys);
@@ -200,7 +210,7 @@ public class DiffAdapter extends RecyclerView.Adapter<BaseDiffViewHolder> {
         });
     }
 
-
+    // 全量更新
     public void setDatas(List<? extends BaseMutableData> datas) {
 
         List<BaseMutableData> newList = new ArrayList<>(datas);
@@ -213,6 +223,7 @@ public class DiffAdapter extends RecyclerView.Adapter<BaseDiffViewHolder> {
 
     }
 
+    // 增
     public <T extends BaseMutableData> void addData(final T data) {
         if (data == null) {
             return;
@@ -265,6 +276,7 @@ public class DiffAdapter extends RecyclerView.Adapter<BaseDiffViewHolder> {
         }, mDatas);
     }
 
+    // 删
     public void deleteData(final BaseMutableData data) {
         if (data == null) {
             return;
@@ -342,17 +354,18 @@ public class DiffAdapter extends RecyclerView.Adapter<BaseDiffViewHolder> {
         }
         Iterator<BaseMutableData> iterator = mDatas.iterator();
         int foundIndex = -1;
-
+        // 遍历所有数据，进行匹配更新
         while (iterator.hasNext()) {
             BaseMutableData data = iterator.next();
             foundIndex++;
-
+            // 如果item类型一致，特征一致，更新数据
             if (data.getItemViewId() == newData.getItemViewId()
                     && newData.uniqueItemFeature().equals(data.uniqueItemFeature())) {
 
                 mDatas.set(foundIndex, newData);
 
                 if (mDatas.size() > foundIndex) {
+                    // 如果支持Payload更新，就是用性能更好的Payload更新
                     Set<String> dataPayloadKeys = data.getPayloadKeys(newData);
 
                     payloadKeys.addAll(dataPayloadKeys);

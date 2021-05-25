@@ -48,6 +48,7 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
         final long runGeneration = ++this.mMaxScheduledGeneration;
         mGenerations.add(runGeneration);
         Log.d(TAG, "latchList submitList  runGeneration add :" + runGeneration + ";;size" + mGenerations.size());
+        // 新旧数据列表 不能是同一个对象
         if (newList != this.mOldList) {
             if (newList == null) {
                 int countRemoved = this.mOldList.size();
@@ -59,6 +60,7 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
                         mGenerations.size());
             } else if (this.mOldList == null) {
                 syncOldList(newList);
+                // 第一次submitList更新数据时，更新同步时间
                 updateSyncTime(newList);
                 updateCurrentList(new ArrayList<>(newList));
                 this.mUpdateCallback.onInserted(0, newList.size());
@@ -66,6 +68,7 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
                 Log.d(TAG, "latchList submitList mOldList == null runGeneration :" + runGeneration + ";;size" +
                         mGenerations.size());
             } else {
+                // 对新旧数据进行diff计算
                 doDiff(newList, runGeneration);
             }
         }
@@ -82,6 +85,7 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
         this.mConfig.getBackgroundThreadExecutor().execute(new Runnable() {
             @Override
             public void run() {
+                // 差分计算结果
                 final DiffUtil.DiffResult result = DiffUtil.calculateDiff(new DiffUtil.Callback() {
                     @Override
                     public int getOldListSize() {
@@ -137,11 +141,13 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
                 mDiffHandler.post(new Runnable() {
                     @Override
                     public void run() {
+                        // mMaxScheduledGeneration == runGeneration，说明runGeneration这次的操作就是最新的刷新操作
                         if (AsyncListUpdateDiffer.this.mMaxScheduledGeneration == runGeneration) {
                             AsyncListUpdateDiffer.this.latchList(newList, result, runGeneration);
                             Log.d(TAG, "latchList doDiff runGeneration :" + runGeneration + ";;size" +
                                     mGenerations.size());
                         } else {
+                            // 这次操作已经失效，以最新的刷新操作为准
                             Log.d(TAG, "latchList doDiff else runGeneration :" + runGeneration + ";;size" +
                                     mGenerations.size());
                             mGenerations.remove(runGeneration);
@@ -154,7 +160,7 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
 
     private void latchList(@NonNull final List<T> newList, @NonNull final DiffUtil.DiffResult diffResult,
                            final long runGeneration) {
-
+        // 一个数据项，增加5毫秒的时间？ 用来协调多次submitList 线性执行
         long needDelay = mCanSyncTime - SystemClock.elapsedRealtime();
         if (needDelay <= 0) {
 
@@ -188,6 +194,7 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
     }
 
     void updateOldListSize(final @NonNull Runnable listSizeRunnable, final List<T> oldDatas) {
+        // 这里判断是不是在全量更新过程中，如果是的话，就没必要再更新了
         if (mGenerations.size() > 0) {
             return;
         }
@@ -197,6 +204,7 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
         if (currentTimeMillis >= mCanSyncTime) {
 
             listSizeRunnable.run();
+            // 更新操作完成后，更新列表索引
             syncOldList(oldDatas);
 
         } else {
@@ -224,6 +232,7 @@ class AsyncListUpdateDiffer<T extends BaseMutableData> {
     }
 
     private void updateSyncTime(@Nullable List<T> oldData) {
+        // 一个数据项，增加5毫秒的时间？ 用来协调多次submitList 线性执行
         mCanSyncTime = SystemClock.elapsedRealtime() + (oldData != null ? oldData.size() * DELAY_STEP : 0);
     }
 
