@@ -159,7 +159,7 @@ public class DiffAdapter extends RecyclerView.Adapter<BaseDiffViewHolder> {
      * 更新单个item
      * @param elementData 提供更新数据的 LiveData,泛型是原始数据，而不是包装后的数据
      * @param updatePayloadFunction
-     * @param <I>
+     * @param <I> 泛型是未包装的原始数据
      * @param <R>
      */
     public <I, R extends BaseMutableData> void addUpdateMediator(LiveData<I> elementData,
